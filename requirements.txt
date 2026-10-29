@@ -3,4 +3,4 @@ requests>=2.31
 ollama>=0.3
 beautifulsoup4>=4.12
 lxml>=5.0
-duckduckgo-search>=6.1.0
+ddgs>=9.0.0

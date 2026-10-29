@@ -1,8 +1,4 @@
-"""Thin, synchronous Ollama client wrapper for Taji 1.1.
-
-The UI runs these methods from a worker thread so the interface stays
-responsive while the local model generates.
-"""
+"""Thin, synchronous Ollama client wrapper for Taji 1.1."""
 
 from __future__ import annotations
 
@@ -40,7 +36,7 @@ class OllamaClient:
         self, messages: List[Dict[str, str]], system: Optional[str]
     ) -> List[Dict[str, str]]:
         """Forcefully inject the system prompt to ensure the model obeys its identity."""
-        prompt = system if system is not None else CHAT_SYSTEM_PROMPT # Changed
+        prompt = system if system is not None else CHAT_SYSTEM_PROMPT
         
         if prompt:
             if not messages or messages[0].get("role") != "system":
@@ -63,7 +59,7 @@ class OllamaClient:
                 messages=self._messages_with_system(messages, system),
                 options=self._options(temperature),
             )
-        except Exception as exc:  # noqa: BLE001 - surface a clean error upstream
+        except Exception as exc:
             raise OllamaError(f"model request failed: {exc}") from exc
 
     def stream_chat(
@@ -80,7 +76,7 @@ class OllamaClient:
                 options=self._options(temperature),
                 stream=True,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise OllamaError(f"model request failed: {exc}") from exc
 
         for chunk in stream:
@@ -92,7 +88,7 @@ class OllamaClient:
         """Return True if the Ollama server is reachable and the model is present."""
         try:
             models = self._client.list()
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False
         names = {m.get("name") or m.get("model") for m in (models.get("models") or [])}
         return self.model in names

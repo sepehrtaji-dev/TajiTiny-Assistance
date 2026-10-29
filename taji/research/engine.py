@@ -1,14 +1,4 @@
-"""Deep research engine.
-
-Orchestrates a multi-step "deep research" pass over a question:
-
-1. Expand the question into focused sub-queries (with a fallback to the raw question).
-2. Search each query and collect deduplicated sources.
-3. Fetch and extract the full text of the top sources.
-4. Synthesize a grounded, cited answer using only that source material.
-
-Progress is reported through an optional callback so the UI can stream status.
-"""
+"""Deep research engine."""
 
 from __future__ import annotations
 
@@ -17,7 +7,7 @@ from typing import Callable, List, Optional
 
 from .. import config
 from ..llm.client import OllamaClient
-from ..llm.prompts import RESEARCH_ANSWER_PROMPT, SUBQUERY_PROMPT
+from ..llm.prompts import RESEARCH_ANSWER_PROMPT
 from .fetch import fetch_page
 from .search import search
 
@@ -53,10 +43,11 @@ class ResearchEngine:
         depth: Optional[int] = None,
         progress: Optional[ProgressFn] = None,
     ) -> ResearchResult:
-        depth = depth or config.RESEARCH_DEPTH
         progress = progress or (lambda _msg: None)
 
-        queries = self._build_queries(question, depth)
+        # Do not use LLM to generate queries (causes 3B models to hallucinate random text)
+        queries = [question]
+        
         sources = self._gather_sources(queries, progress)
         self._enrich_sources(sources, progress)
 
@@ -70,35 +61,6 @@ class ResearchEngine:
             queries=queries,
         )
 
-    # -- query expansion ---------------------------------------------------
-
-    def _build_queries(self, question: str, depth: int) -> List[str]:
-        queries = [question]
-        if depth >= 2:
-            sub = self._subqueries(question)
-            queries.extend(sub[:3])
-        return queries
-
-    def _subqueries(self, question: str) -> List[str]:
-        """Ask the model for focused sub-queries; fall back to [] on any failure."""
-        try:
-            resp = self.client.chat(
-                [{"role": "user", "content": SUBQUERY_PROMPT.format(question=question)}],
-                temperature=0.2,
-            )
-            content = (resp.get("message") or {}).get("content") or ""
-        except Exception:  # noqa: BLE001 - expansion is best-effort
-            return []
-
-        cleaned = []
-        for line in content.splitlines():
-            line = line.strip().lstrip(" -•*#0123456789.)").strip()
-            if len(line) > 3:
-                cleaned.append(line)
-        return cleaned[:4]
-
-    # -- gathering ---------------------------------------------------------
-
     def _gather_sources(
         self, queries: List[str], progress: ProgressFn
     ) -> List[Source]:
@@ -106,11 +68,13 @@ class ResearchEngine:
         sources: List[Source] = []
 
         for query in queries:
-            progress(f"Searching: {query}")
+            progress(f"Searching the web for: {query}")
             try:
                 results = search(query)
-            except Exception as exc:  # noqa: BLE001 - keep going on partial failure
-                progress(f"Search skipped ({exc})")
+                if not results:
+                    progress(f"No results found for '{query}'")
+            except Exception as exc:
+                progress(f"Search failed: {exc}")
                 continue
 
             for result in results:
@@ -146,22 +110,18 @@ class ResearchEngine:
             else:
                 progress(f"Could not read {source.title} ({page.error})")
 
-    # -- synthesis ---------------------------------------------------------
-
     def _synthesize(self, question: str, sources: List[Source]) -> str:
         context = self._build_context(sources)
         
-        # If no sources were found, fail gracefully instead of asking the model
         if not context.strip():
-            return "I couldn't find any web sources to answer this question."
+            return "I couldn't find any web sources to answer this question. Please try rephrasing your query."
 
         resp = self.client.chat(
             [{"role": "user", "content": RESEARCH_ANSWER_PROMPT.format(
                 question=question, sources=context
             )}],
-            # Explicitly use a strict system prompt for research
-            system="You are a factual research assistant. Answer ONLY using the provided sources. Cite them as [1], [2]. If the answer is not in the sources, say you don't know.",
-            temperature=0.2, # Keep research very grounded
+            system="You are a factual research assistant. Answer ONLY using the provided sources. Cite them as [1], [2]. If the answer is not in the sources, say 'I couldn't find that in the sources.'",
+            temperature=0.1,
         )
         return (resp.get("message") or {}).get("content") or ""
 

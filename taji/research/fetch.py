@@ -31,7 +31,6 @@ _HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-# Page elements that never carry useful article text.
 _BOILERPLATE_TAGS = [
     "script", "style", "noscript", "svg", "iframe",
     "header", "footer", "nav", "aside", "form", "button",
@@ -73,15 +72,12 @@ def extract_title(html: str) -> str:
 
 
 def extract_text(html: str) -> str:
-    """Return clean, readable text from an HTML document."""
     soup = BeautifulSoup(html, "lxml")
 
     for tag in soup(_BOILERPLATE_TAGS):
         tag.decompose()
 
-    # Prefer the article/main container, then body, then the whole document.
     container = soup.find("article") or soup.find("main") or soup.body or soup
-
     text = container.get_text("\n", strip=True)
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"[ \t]+", " ", text)
