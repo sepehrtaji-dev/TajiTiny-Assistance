@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from .. import config
 from ..llm.client import OllamaClient, OllamaError
-from ..llm.prompts import SYSTEM_PROMPT
+from ..llm.prompts import CHAT_SYSTEM_PROMPT
 from ..research.engine import ResearchEngine
 from .chat import ChatView
 from .markdown import render_markdown

@@ -16,7 +16,7 @@ OLLAMA_HOST = "http://127.0.0.1:11434"
 MODEL_NAME = "qwen2.5:3b"
 
 # Lower temperature keeps answers grounded and reduces hallucination.
-DEFAULT_TEMPERATURE = 0.3
+DEFAULT_TEMPERATURE = 0.6
 DEFAULT_NUM_CTX = 8192
 DEFAULT_TIMEOUT = 120.0
 

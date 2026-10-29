@@ -114,24 +114,36 @@ class ChatView(QListWidget):
 
     def append_assistant(self, chunk: str) -> None:
         """Append text to the last assistant bubble."""
-        widget = self.itemWidget(self._stream_item) if hasattr(self, "_stream_item") else None
-        if widget is None:
-            self.add_assistant(chunk)
+        if not hasattr(self, "_stream_item"):
             return
+            
+        widget = self.itemWidget(self._stream_item)
+        if widget is None:
+            return
+            
+        # FIX: Access the nested layout properly instead of trying to get a widget
         layout = widget.layout()
         if layout is None:
             return
-        body = layout.itemAt(1).widget() if layout.count() > 1 else None
-        if body is None:
+            
+        body_item = layout.itemAt(1)
+        if body_item is None or body_item.layout() is None:
             return
-        msg_label = body.layout().itemAt(1).widget() if body.layout() else None
-        if msg_label is None:
+            
+        body_layout = body_item.layout()
+        msg_item = body_layout.itemAt(1)
+        if msg_item is None or msg_item.widget() is None:
             return
+            
+        msg_label = msg_item.widget()
+        
+        # Accumulate text and re-render markdown
         self._raw_assistant_text = getattr(self, "_raw_assistant_text", "") + chunk
         msg_label.setText(render_markdown(self._raw_assistant_text))
+        
+        # Force layout update
         widget.adjustSize()
-        item = self._stream_item
-        item.setSizeHint(widget.sizeHint())
+        self._stream_item.setSizeHint(widget.sizeHint())
         self.scrollToBottom()
 
     def finish_assistant(self) -> None:

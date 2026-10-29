@@ -150,16 +150,18 @@ class ResearchEngine:
 
     def _synthesize(self, question: str, sources: List[Source]) -> str:
         context = self._build_context(sources)
+        
+        # If no sources were found, fail gracefully instead of asking the model
+        if not context.strip():
+            return "I couldn't find any web sources to answer this question."
+
         resp = self.client.chat(
-            [
-                {
-                    "role": "user",
-                    "content": RESEARCH_ANSWER_PROMPT.format(
-                        question=question, sources=context
-                    ),
-                }
-            ],
-            temperature=0.3,
+            [{"role": "user", "content": RESEARCH_ANSWER_PROMPT.format(
+                question=question, sources=context
+            )}],
+            # Explicitly use a strict system prompt for research
+            system="You are a factual research assistant. Answer ONLY using the provided sources. Cite them as [1], [2]. If the answer is not in the sources, say you don't know.",
+            temperature=0.2, # Keep research very grounded
         )
         return (resp.get("message") or {}).get("content") or ""
 
