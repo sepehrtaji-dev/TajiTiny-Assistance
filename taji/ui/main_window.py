@@ -82,6 +82,7 @@ class MainWindow(QMainWindow):
 
         self._thread: Optional[QThread] = None
         self._worker: Optional[QObject] = None
+        self._last_result = None
 
         self._build_ui()
         self._apply_theme("dark")
@@ -115,14 +116,25 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget()
         self.nav.setObjectName("Nav")
         self.nav.setFocusPolicy(Qt.NoFocus)
-        for text in ["💬 Chat", "🔍 Research", "📚 Sources", "⚙️ Settings", "ℹ️ About"]:
-            self.nav.addItem(QListWidgetItem(text))
+        self.nav.setAlternatingRowColors(False)
+        nav_items = [
+            ("💬 Chat", "chat"),
+            ("🔍 Research", "research"),
+            ("📚 Sources", "sources"),
+            ("⚙️ Settings", "settings"),
+            ("ℹ️ About", "about"),
+        ]
+        for text, key in nav_items:
+            item = QListWidgetItem(text)
+            item.setData(Qt.UserRole, key)
+            self.nav.addItem(item)
+        self.nav.setCurrentRow(0)
         self.nav.currentRowChanged.connect(self._navigate)
         s_layout.addWidget(self.nav)
 
         s_layout.addStretch()
 
-        self.status_indicator = QLabel("● Ollama")
+        self.status_indicator = QLabel("● Checking Ollama...")
         self.status_indicator.setStyleSheet("font-size: 12px; color: #ef4444;")
         s_layout.addWidget(self.status_indicator)
 
@@ -136,8 +148,8 @@ class MainWindow(QMainWindow):
 
         # Top bar
         top = QFrame()
-        top.setFixedHeight(60)
         top.setObjectName("TopBar")
+        top.setFixedHeight(60)
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(24, 0, 24, 0)
 
@@ -148,16 +160,19 @@ class MainWindow(QMainWindow):
 
         self.model_combo = QComboBox()
         self.model_combo.addItems([config.MODEL_NAME])
+        self.model_combo.setFixedWidth(180)
         self.model_combo.setEnabled(False)
         top_layout.addWidget(self.model_combo)
 
         self.btn_theme = QPushButton("🌙")
         self.btn_theme.setFixedSize(36, 36)
+        self.btn_theme.setStyleSheet("border-radius: 18px; font-size: 16px;")
         self.btn_theme.clicked.connect(self._toggle_theme)
         top_layout.addWidget(self.btn_theme)
 
         self.btn_settings = QPushButton("⚙️")
         self.btn_settings.setFixedSize(36, 36)
+        self.btn_settings.setStyleSheet("border-radius: 18px; font-size: 16px;")
         self.btn_settings.clicked.connect(lambda: self._navigate_to("settings"))
         top_layout.addWidget(self.btn_settings)
 
@@ -167,6 +182,7 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.stack.addWidget(self._build_chat_page())
         self.stack.addWidget(self._build_research_page())
+        self.stack.addWidget(self._build_sources_page())
         self.stack.addWidget(self._build_settings_page())
         self.stack.addWidget(self._build_about_page())
         c_layout.addWidget(self.stack)
@@ -176,12 +192,8 @@ class MainWindow(QMainWindow):
     def _build_chat_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 32, 32, 32)
-        layout.setSpacing(20)
-
-        title = QLabel("Conversation")
-        title.setStyleSheet("font-size: 22px; font-weight: 800;")
-        layout.addWidget(title)
+        layout.setContentsMargins(32, 24, 32, 24)
+        layout.setSpacing(16)
 
         splitter = QSplitter(Qt.Horizontal)
 
@@ -207,6 +219,9 @@ class MainWindow(QMainWindow):
         self.user_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.user_input.installEventFilter(self)
 
+        btn_column = QVBoxLayout()
+        btn_column.setSpacing(8)
+
         self.btn_send = QPushButton("Send")
         self.btn_send.setObjectName("Primary")
         self.btn_send.clicked.connect(self._send)
@@ -219,10 +234,13 @@ class MainWindow(QMainWindow):
         self.btn_to_research = QPushButton("Deep Research")
         self.btn_to_research.clicked.connect(lambda: self._navigate_to("research"))
 
+        btn_column.addWidget(self.btn_send)
+        btn_column.addWidget(self.btn_stop)
+        btn_column.addWidget(self.btn_to_research)
+        btn_column.addStretch()
+
         card_layout.addWidget(self.user_input)
-        card_layout.addWidget(self.btn_send)
-        card_layout.addWidget(self.btn_stop)
-        card_layout.addWidget(self.btn_to_research)
+        card_layout.addLayout(btn_column)
 
         layout.addWidget(card)
         return page
@@ -230,7 +248,7 @@ class MainWindow(QMainWindow):
     def _build_research_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setContentsMargins(32, 24, 32, 24)
         layout.setSpacing(20)
 
         title = QLabel("Deep Research")
@@ -243,6 +261,7 @@ class MainWindow(QMainWindow):
 
         self.research_input = QLineEdit()
         self.research_input.setPlaceholderText("What should I research?")
+        self.research_input.setMinimumHeight(44)
         layout.addWidget(self.research_input)
 
         row = QHBoxLayout()
@@ -259,20 +278,37 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.progress_bar)
 
         self.research_status = QLabel("")
+        self.research_status.setStyleSheet("color: #94a3b8; font-size: 13px;")
         layout.addWidget(self.research_status)
 
         self.research_output = QTextBrowser()
         self.research_output.setReadOnly(True)
-        self.research_output.setMinimumHeight(300)
+        self.research_output.setMinimumHeight(350)
         layout.addWidget(self.research_output)
 
         src_row = QHBoxLayout()
         self.btn_copy_to_chat = QPushButton("Copy answer to chat")
         self.btn_copy_to_chat.clicked.connect(self._copy_research_to_chat)
         self.btn_copy_to_chat.hide()
-        src_row.addWidget(self.btn_copy_to_chat)
         src_row.addStretch()
+        src_row.addWidget(self.btn_copy_to_chat)
         layout.addLayout(src_row)
+
+        layout.addStretch()
+        return page
+
+    def _build_sources_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 24, 32, 24)
+        layout.setSpacing(16)
+
+        title = QLabel("Sources")
+        title.setStyleSheet("font-size: 22px; font-weight: 800;")
+        layout.addWidget(title)
+
+        self.sources_view = SourcesPanel()
+        layout.addWidget(self.sources_view)
 
         layout.addStretch()
         return page
@@ -280,7 +316,7 @@ class MainWindow(QMainWindow):
     def _build_settings_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setContentsMargins(32, 24, 32, 24)
         layout.setSpacing(24)
 
         title = QLabel("Settings")
@@ -323,7 +359,7 @@ class MainWindow(QMainWindow):
     def _build_about_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setContentsMargins(32, 24, 32, 24)
         layout.setSpacing(16)
 
         name = QLabel(config.APP_NAME)
@@ -352,20 +388,22 @@ class MainWindow(QMainWindow):
 
     def _navigate(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
-        names = ["chat", "research", "settings", "about"]
-        if 0 <= index < len(names):
-            self._update_title(names[index])
+        nav_keys = ["chat", "research", "sources", "settings", "about"]
+        if 0 <= index < len(nav_keys):
+            self._update_title(nav_keys[index])
 
     def _navigate_to(self, name: str) -> None:
-        index = {"chat": 0, "research": 1, "settings": 2, "about": 3}[name]
+        nav_keys = ["chat", "research", "sources", "settings", "about"]
+        index = nav_keys.index(name) if name in nav_keys else 0
         self.nav.setCurrentRow(index)
         self.stack.setCurrentIndex(index)
         self._update_title(name)
 
     def _update_title(self, name: str) -> None:
         titles = {
-            "chat": "Conversation",
+            "chat": "Chat",
             "research": "Deep Research",
+            "sources": "Sources",
             "settings": "Settings",
             "about": "About",
         }
@@ -484,7 +522,7 @@ class MainWindow(QMainWindow):
         self.research_status.setText(f"Error: {msg}")
 
     def _copy_research_to_chat(self) -> None:
-        result = getattr(self, "_last_result", None)
+        result = self._last_result
         if not result:
             return
         self._navigate_to("chat")
