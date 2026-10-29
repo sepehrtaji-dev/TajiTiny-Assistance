@@ -1,4 +1,4 @@
-"""Main window for Taji 1.1 — modern research assistant UI."""
+"""Main window for Taji 1.1 — clean, working layout."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QLabel, QPushButton, QListWidget, QListWidgetItem,
     QFrame, QSplitter, QTextEdit, QLineEdit, QComboBox, QSpinBox,
-    QDoubleSpinBox, QGroupBox, QFormLayout, QMessageBox,
-    QProgressBar, QSizePolicy, QTextBrowser,
+    QDoubleSpinBox, QGroupBox, QFormLayout, QMessageBox, QProgressBar,
+    QSizePolicy,
 )
 
 from .. import config
@@ -27,10 +27,10 @@ class _ChatWorker(QObject):
     finished = Signal(str)
     error = Signal(str)
 
-    def __init__(self, client: OllamaClient, messages: list[dict]) -> None:
+    def __init__(self, client: OllamaClient, text: str) -> None:
         super().__init__()
         self.client = client
-        self.messages = messages
+        self.text = text
         self._stop = False
 
     def stop(self) -> None:
@@ -39,7 +39,7 @@ class _ChatWorker(QObject):
     def run(self) -> None:
         try:
             full = ""
-            for chunk in self.client.stream_chat(self.messages):
+            for chunk in self.client.stream_chat([{"role": "user", "content": self.text}]):
                 if self._stop:
                     break
                 full += chunk
@@ -74,21 +74,20 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"{config.APP_NAME} — {config.APP_TAGLINE}")
-        self.resize(1300, 850)
+        self.resize(1280, 800)
 
-        self._theme: str = "dark"
+        self._theme = "dark"
         self.client = OllamaClient()
         self.engine = ResearchEngine(self.client)
-
         self._thread: Optional[QThread] = None
         self._worker: Optional[QObject] = None
         self._last_result = None
 
         self._build_ui()
-        self._apply_theme("dark")
+        apply_theme(QApplication.instance(), self._theme)
         self._check_ollama()
 
-    # -- UI construction --------------------------------------------------
+    # -- UI --------------------------------------------------------------
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -98,33 +97,32 @@ class MainWindow(QMainWindow):
         root.setSpacing(0)
 
         # Sidebar
-        self.sidebar = QFrame()
-        self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(250)
-        s_layout = QVBoxLayout(self.sidebar)
+        sidebar = QFrame()
+        sidebar.setObjectName("Sidebar")
+        sidebar.setFixedWidth(240)
+        s_layout = QVBoxLayout(sidebar)
         s_layout.setContentsMargins(0, 24, 0, 24)
-        s_layout.setSpacing(12)
+        s_layout.setSpacing(8)
 
         logo = QLabel("TAJI")
-        logo.setStyleSheet("font-size: 28px; font-weight: 900; letter-spacing: -1px; color: #22d3ee;")
+        logo.setStyleSheet("font-size: 26px; font-weight: 900; color: #22d3ee;")
         s_layout.addWidget(logo)
 
         ver = QLabel(f"v{config.APP_VERSION}")
-        ver.setStyleSheet("font-size: 11px; color: #64748b; margin-bottom: 24px;")
+        ver.setStyleSheet("font-size: 11px; color: #64748b; margin-bottom: 20px;")
         s_layout.addWidget(ver)
 
         self.nav = QListWidget()
         self.nav.setObjectName("Nav")
         self.nav.setFocusPolicy(Qt.NoFocus)
-        self.nav.setAlternatingRowColors(False)
-        nav_items = [
+        self.nav_items = [
             ("💬 Chat", "chat"),
             ("🔍 Research", "research"),
             ("📚 Sources", "sources"),
             ("⚙️ Settings", "settings"),
             ("ℹ️ About", "about"),
         ]
-        for text, key in nav_items:
+        for text, key in self.nav_items:
             item = QListWidgetItem(text)
             item.setData(Qt.UserRole, key)
             self.nav.addItem(item)
@@ -134,13 +132,13 @@ class MainWindow(QMainWindow):
 
         s_layout.addStretch()
 
-        self.status_indicator = QLabel("● Checking Ollama...")
+        self.status_indicator = QLabel("● Checking…")
         self.status_indicator.setStyleSheet("font-size: 12px; color: #ef4444;")
         s_layout.addWidget(self.status_indicator)
 
-        root.addWidget(self.sidebar)
+        root.addWidget(sidebar)
 
-        # Content area
+        # Content
         content = QWidget()
         c_layout = QVBoxLayout(content)
         c_layout.setContentsMargins(0, 0, 0, 0)
@@ -149,30 +147,30 @@ class MainWindow(QMainWindow):
         # Top bar
         top = QFrame()
         top.setObjectName("TopBar")
-        top.setFixedHeight(60)
+        top.setFixedHeight(56)
         top_layout = QHBoxLayout(top)
-        top_layout.setContentsMargins(24, 0, 24, 0)
+        top_layout.setContentsMargins(20, 0, 20, 0)
 
         self.page_title = QLabel("Chat")
-        self.page_title.setStyleSheet("font-size: 18px; font-weight: 800;")
+        self.page_title.setStyleSheet("font-size: 17px; font-weight: 800;")
         top_layout.addWidget(self.page_title)
         top_layout.addStretch()
 
         self.model_combo = QComboBox()
         self.model_combo.addItems([config.MODEL_NAME])
-        self.model_combo.setFixedWidth(180)
+        self.model_combo.setFixedWidth(170)
         self.model_combo.setEnabled(False)
         top_layout.addWidget(self.model_combo)
 
         self.btn_theme = QPushButton("🌙")
-        self.btn_theme.setFixedSize(36, 36)
-        self.btn_theme.setStyleSheet("border-radius: 18px; font-size: 16px;")
+        self.btn_theme.setFixedSize(34, 34)
+        self.btn_theme.setStyleSheet("border-radius: 17px; font-size: 16px;")
         self.btn_theme.clicked.connect(self._toggle_theme)
         top_layout.addWidget(self.btn_theme)
 
         self.btn_settings = QPushButton("⚙️")
-        self.btn_settings.setFixedSize(36, 36)
-        self.btn_settings.setStyleSheet("border-radius: 18px; font-size: 16px;")
+        self.btn_settings.setFixedSize(34, 34)
+        self.btn_settings.setStyleSheet("border-radius: 17px; font-size: 16px;")
         self.btn_settings.clicked.connect(lambda: self._navigate_to("settings"))
         top_layout.addWidget(self.btn_settings)
 
@@ -192,8 +190,8 @@ class MainWindow(QMainWindow):
     def _build_chat_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 24, 32, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(28, 20, 28, 20)
+        layout.setSpacing(12)
 
         splitter = QSplitter(Qt.Horizontal)
 
@@ -202,25 +200,26 @@ class MainWindow(QMainWindow):
 
         self.sources_panel = SourcesPanel()
         splitter.addWidget(self.sources_panel)
-        splitter.setStretchFactor(0, 4)
+        splitter.setStretchFactor(0, 5)
         splitter.setStretchFactor(1, 1)
 
         layout.addWidget(splitter)
 
+        # Input card
         card = QFrame()
         card.setObjectName("InputCard")
         card_layout = QHBoxLayout(card)
-        card_layout.setContentsMargins(16, 16, 16, 16)
-        card_layout.setSpacing(12)
+        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setSpacing(10)
 
         self.user_input = QTextEdit()
-        self.user_input.setPlaceholderText("Ask Taji anything... (Shift + Enter for newline)")
-        self.user_input.setMaximumHeight(110)
+        self.user_input.setPlaceholderText("Ask Taji anything… (Shift + Enter for newline)")
+        self.user_input.setMaximumHeight(96)
         self.user_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.user_input.installEventFilter(self)
 
-        btn_column = QVBoxLayout()
-        btn_column.setSpacing(8)
+        btn_col = QVBoxLayout()
+        btn_col.setSpacing(6)
 
         self.btn_send = QPushButton("Send")
         self.btn_send.setObjectName("Primary")
@@ -234,13 +233,13 @@ class MainWindow(QMainWindow):
         self.btn_to_research = QPushButton("Deep Research")
         self.btn_to_research.clicked.connect(lambda: self._navigate_to("research"))
 
-        btn_column.addWidget(self.btn_send)
-        btn_column.addWidget(self.btn_stop)
-        btn_column.addWidget(self.btn_to_research)
-        btn_column.addStretch()
+        btn_col.addWidget(self.btn_send)
+        btn_col.addWidget(self.btn_stop)
+        btn_col.addWidget(self.btn_to_research)
+        btn_col.addStretch()
 
         card_layout.addWidget(self.user_input)
-        card_layout.addLayout(btn_column)
+        card_layout.addLayout(btn_col)
 
         layout.addWidget(card)
         return page
@@ -248,20 +247,20 @@ class MainWindow(QMainWindow):
     def _build_research_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 24, 32, 24)
-        layout.setSpacing(20)
+        layout.setContentsMargins(28, 20, 28, 20)
+        layout.setSpacing(14)
 
         title = QLabel("Deep Research")
-        title.setStyleSheet("font-size: 22px; font-weight: 800;")
+        title.setStyleSheet("font-size: 20px; font-weight: 800;")
         layout.addWidget(title)
 
-        sub = QLabel("Search the web, fetch sources, and synthesize a grounded answer with citations.")
-        sub.setStyleSheet("color: #94a3b8; font-size: 14px;")
+        sub = QLabel("Search the web, fetch sources, and synthesize a grounded answer.")
+        sub.setStyleSheet("color: #94a3b8; font-size: 13px;")
         layout.addWidget(sub)
 
         self.research_input = QLineEdit()
         self.research_input.setPlaceholderText("What should I research?")
-        self.research_input.setMinimumHeight(44)
+        self.research_input.setMinimumHeight(42)
         layout.addWidget(self.research_input)
 
         row = QHBoxLayout()
@@ -278,12 +277,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.progress_bar)
 
         self.research_status = QLabel("")
-        self.research_status.setStyleSheet("color: #94a3b8; font-size: 13px;")
+        self.research_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout.addWidget(self.research_status)
 
         self.research_output = QTextBrowser()
         self.research_output.setReadOnly(True)
-        self.research_output.setMinimumHeight(350)
+        self.research_output.setMinimumHeight(320)
         layout.addWidget(self.research_output)
 
         src_row = QHBoxLayout()
@@ -300,11 +299,11 @@ class MainWindow(QMainWindow):
     def _build_sources_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 24, 32, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(28, 20, 28, 20)
+        layout.setSpacing(12)
 
         title = QLabel("Sources")
-        title.setStyleSheet("font-size: 22px; font-weight: 800;")
+        title.setStyleSheet("font-size: 20px; font-weight: 800;")
         layout.addWidget(title)
 
         self.sources_view = SourcesPanel()
@@ -316,35 +315,35 @@ class MainWindow(QMainWindow):
     def _build_settings_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 24, 32, 24)
-        layout.setSpacing(24)
+        layout.setContentsMargins(28, 20, 28, 20)
+        layout.setSpacing(18)
 
         title = QLabel("Settings")
-        title.setStyleSheet("font-size: 22px; font-weight: 800;")
+        title.setStyleSheet("font-size: 20px; font-weight: 800;")
         layout.addWidget(title)
 
         form = QGroupBox("Ollama / Model")
-        form_layout = QFormLayout(form)
+        fl = QFormLayout(form)
 
-        self.settings_host = QLineEdit(config.OLLAMA_HOST)
-        self.settings_model = QLineEdit(config.MODEL_NAME)
-        self.settings_temp = QDoubleSpinBox()
-        self.settings_temp.setRange(0.0, 2.0)
-        self.settings_temp.setSingleStep(0.1)
-        self.settings_temp.setValue(config.DEFAULT_TEMPERATURE)
-        self.settings_ctx = QSpinBox()
-        self.settings_ctx.setRange(512, 131072)
-        self.settings_ctx.setSingleStep(512)
-        self.settings_ctx.setValue(config.DEFAULT_NUM_CTX)
-        self.settings_theme = QComboBox()
-        self.settings_theme.addItems(["Dark", "Light"])
-        self.settings_theme.setCurrentText("Dark" if self._theme == "dark" else "Light")
+        self.s_host = QLineEdit(config.OLLAMA_HOST)
+        self.s_model = QLineEdit(config.MODEL_NAME)
+        self.s_temp = QDoubleSpinBox()
+        self.s_temp.setRange(0.0, 2.0)
+        self.s_temp.setSingleStep(0.1)
+        self.s_temp.setValue(config.DEFAULT_TEMPERATURE)
+        self.s_ctx = QSpinBox()
+        self.s_ctx.setRange(512, 131072)
+        self.s_ctx.setSingleStep(512)
+        self.s_ctx.setValue(config.DEFAULT_NUM_CTX)
+        self.s_theme = QComboBox()
+        self.s_theme.addItems(["Dark", "Light"])
+        self.s_theme.setCurrentText("Dark" if self._theme == "dark" else "Light")
 
-        form_layout.addRow("Host", self.settings_host)
-        form_layout.addRow("Model", self.settings_model)
-        form_layout.addRow("Temperature", self.settings_temp)
-        form_layout.addRow("Context size", self.settings_ctx)
-        form_layout.addRow("Theme", self.settings_theme)
+        fl.addRow("Host", self.s_host)
+        fl.addRow("Model", self.s_model)
+        fl.addRow("Temperature", self.s_temp)
+        fl.addRow("Context size", self.s_ctx)
+        fl.addRow("Theme", self.s_theme)
 
         layout.addWidget(form)
 
@@ -359,18 +358,18 @@ class MainWindow(QMainWindow):
     def _build_about_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(32, 24, 32, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(28, 20, 28, 20)
+        layout.setSpacing(14)
 
         name = QLabel(config.APP_NAME)
-        name.setStyleSheet("font-size: 40px; font-weight: 900; color: #22d3ee;")
+        name.setStyleSheet("font-size: 36px; font-weight: 900; color: #22d3ee;")
         layout.addWidget(name)
 
         tag = QLabel(config.APP_TAGLINE)
-        tag.setStyleSheet("font-size: 16px; color: #94a3b8;")
+        tag.setStyleSheet("font-size: 15px; color: #94a3b8;")
         layout.addWidget(tag)
 
-        layout.addSpacing(24)
+        layout.addSpacing(20)
 
         info = QLabel(
             f"Version: {config.APP_VERSION}<br>"
@@ -384,43 +383,35 @@ class MainWindow(QMainWindow):
         layout.addStretch()
         return page
 
-    # -- navigation -------------------------------------------------------
+    # -- navigation -----------------------------------------------------
 
     def _navigate(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
-        nav_keys = ["chat", "research", "sources", "settings", "about"]
-        if 0 <= index < len(nav_keys):
-            self._update_title(nav_keys[index])
+        keys = [k for _, k in self.nav_items]
+        if 0 <= index < len(keys):
+            self._update_title(keys[index])
 
     def _navigate_to(self, name: str) -> None:
-        nav_keys = ["chat", "research", "sources", "settings", "about"]
-        index = nav_keys.index(name) if name in nav_keys else 0
+        keys = [k for _, k in self.nav_items]
+        index = keys.index(name) if name in keys else 0
         self.nav.setCurrentRow(index)
         self.stack.setCurrentIndex(index)
         self._update_title(name)
 
     def _update_title(self, name: str) -> None:
-        titles = {
-            "chat": "Chat",
-            "research": "Deep Research",
-            "sources": "Sources",
-            "settings": "Settings",
-            "about": "About",
-        }
+        titles = {"chat": "Chat", "research": "Deep Research", "sources": "Sources",
+                  "settings": "Settings", "about": "About"}
         self.page_title.setText(titles.get(name, name))
 
-    # -- theme ------------------------------------------------------------
-
-    def _apply_theme(self, name: str) -> None:
-        self._theme = name
-        apply_theme(QApplication.instance(), name)
-        self.settings_theme.setCurrentText(name.capitalize())
-        self.btn_theme.setText("☀️" if name == "dark" else "🌙")
+    # -- theme ----------------------------------------------------------
 
     def _toggle_theme(self) -> None:
-        self._apply_theme("light" if self._theme == "dark" else "dark")
+        self._theme = "light" if self._theme == "dark" else "dark"
+        apply_theme(QApplication.instance(), self._theme)
+        self.btn_theme.setText("☀️" if self._theme == "dark" else "🌙")
+        self.s_theme.setCurrentText(self._theme.capitalize())
 
-    # -- ollama status ----------------------------------------------------
+    # -- ollama ---------------------------------------------------------
 
     def _check_ollama(self) -> None:
         try:
@@ -429,11 +420,11 @@ class MainWindow(QMainWindow):
             text = "● Connected" if ok else "● Disconnected"
             self.status_indicator.setText(text)
             self.status_indicator.setStyleSheet(f"font-size: 12px; color: {color};")
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             self.status_indicator.setText("● Error")
             self.status_indicator.setStyleSheet("font-size: 12px; color: #ef4444;")
 
-    # -- actions ----------------------------------------------------------
+    # -- actions --------------------------------------------------------
 
     def _set_busy(self, busy: bool) -> None:
         self.btn_send.setEnabled(not busy)
@@ -458,9 +449,8 @@ class MainWindow(QMainWindow):
         self.chat_view.begin_assistant()
         self._set_busy(True)
 
-        messages = [{"role": "user", "content": text}]
         self._thread = QThread(self)
-        self._worker = _ChatWorker(self.client, messages)
+        self._worker = _ChatWorker(self.client, text)
         self._worker.moveToThread(self._thread)
 
         self._worker.chunk.connect(self.chat_view.append_assistant)
@@ -473,22 +463,25 @@ class MainWindow(QMainWindow):
         self._thread.start()
 
     def _stop(self) -> None:
-        if self._worker is not None and isinstance(self._worker, _ChatWorker):
+        if isinstance(self._worker, _ChatWorker):
             self._worker.stop()
         self.btn_stop.hide()
 
     def _on_chat_finished(self, content: str) -> None:
+        self.chat_view.finish_assistant()
         self._set_busy(False)
 
     def _on_error(self, msg: str) -> None:
         self.chat_view.add_system(f"Error: {msg}")
+        if hasattr(self.chat_view, "_stream_item"):
+            self.chat_view.finish_assistant()
         self._set_busy(False)
 
     def _start_research(self) -> None:
         text = self.research_input.text().strip()
         if not text:
             return
-        self.research_status.setText("Researching...")
+        self.research_status.setText("Researching…")
         self.progress_bar.show()
         self.btn_start_research.setEnabled(False)
         self.btn_copy_to_chat.hide()
@@ -499,7 +492,7 @@ class MainWindow(QMainWindow):
         self._worker.moveToThread(self._thread)
 
         self._worker.progress.connect(self.research_status.setText)
-        self._worker.finished.connect(self._on_research_finished)
+        self._worker.finished.connect(self._on_research_done)
         self._worker.error.connect(self._on_research_error)
         self._worker.finished.connect(self._thread.quit)
         self._worker.error.connect(self._thread.quit)
@@ -507,11 +500,10 @@ class MainWindow(QMainWindow):
         self._thread.started.connect(self._worker.run)
         self._thread.start()
 
-    def _on_research_finished(self, result) -> None:
+    def _on_research_done(self, result) -> None:
         self.progress_bar.hide()
         self.btn_start_research.setEnabled(True)
         self.research_status.setText(f"Done — {len(result.sources)} sources")
-
         self.research_output.setHtml(render_markdown(result.answer))
         self.btn_copy_to_chat.show()
         self._last_result = result
@@ -532,12 +524,13 @@ class MainWindow(QMainWindow):
         self.chat_view.add_sources(result.sources)
 
     def _save_settings(self) -> None:
-        config.OLLAMA_HOST = self.settings_host.text().strip()
-        config.MODEL_NAME = self.settings_model.text().strip()
-        config.DEFAULT_TEMPERATURE = self.settings_temp.value()
-        config.DEFAULT_NUM_CTX = int(self.settings_ctx.value())
-        theme = "dark" if self.settings_theme.currentText() == "Dark" else "light"
-        self._apply_theme(theme)
+        config.OLLAMA_HOST = self.s_host.text().strip()
+        config.MODEL_NAME = self.s_model.text().strip()
+        config.DEFAULT_TEMPERATURE = self.s_temp.value()
+        config.DEFAULT_NUM_CTX = int(self.s_ctx.value())
+        self._theme = "dark" if self.s_theme.currentText() == "Dark" else "light"
+        apply_theme(QApplication.instance(), self._theme)
+        self.btn_theme.setText("☀️" if self._theme == "dark" else "🌙")
         self.client = OllamaClient()
         self.engine = ResearchEngine(self.client)
         self._check_ollama()
