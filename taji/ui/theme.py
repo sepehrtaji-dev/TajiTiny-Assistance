@@ -119,3 +119,8 @@ def stylesheet(name: str = "dark") -> str:
     QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px;
         color: {p['TEXT_MUTED']}; }}
     """
+
+
+def apply_theme(app: QApplication, name: str = "dark") -> None:
+    app.setStyle("Fusion")
+    app.setStyleSheet(stylesheet(name))
