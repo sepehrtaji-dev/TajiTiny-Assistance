@@ -1,144 +1,174 @@
-"""The scrollable chat view (renders conversation as HTML bubbles)."""
+"""Chat message bubbles built from real widgets — no HTML/CSS quirks."""
 
 from __future__ import annotations
 
-import html
 from datetime import datetime
-from typing import Any, List, Tuple
+from typing import List
 
-from PySide6.QtWidgets import QTextBrowser
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget,
+)
 
 from .markdown import render_markdown
 
-_STYLESHEET = """
-body { font-family: 'Segoe UI', 'Inter', 'Helvetica Neue', sans-serif; font-size: 14px; color: #e2e8f0; background: transparent; margin: 0; padding: 8px; }
-.chat-container { padding: 4px 0; }
-.msg { margin: 10px 0; animation: fadeIn 0.25s ease-out; }
-.msg-user { text-align: right; }
-.msg-assistant { text-align: left; }
-.avatar { display: inline-block; width: 34px; height: 34px; border-radius: 50%; text-align: center; line-height: 34px; font-weight: 800; font-size: 13px; margin: 0 8px; vertical-align: middle; }
-.msg-user .avatar { background: #22d3ee; color: #0b1021; }
-.msg-assistant .avatar { background: #818cf8; color: #0b1021; }
-.bubble { display: inline-block; max-width: 78%; padding: 12px 18px; border-radius: 18px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; vertical-align: middle; text-align: left; }
-.msg-user .bubble { border-bottom-right-radius: 4px; background: #1e40af; color: #ffffff; }
-.msg-assistant .bubble { border-bottom-left-radius: 4px; background: #312e81; color: #e2e8f0; }
-.who { font-size: 11px; font-weight: 800; opacity: 0.8; margin-bottom: 6px; display: block; letter-spacing: 0.05em; }
-.msg-user .who { color: #93c5fd; }
-.msg-assistant .who { color: #c7d2fe; }
-.time { font-size: 10px; opacity: 0.5; margin-top: 8px; display: block; }
-.msg-system { text-align: center; color: #64748b; font-size: 12px; font-style: italic; padding: 10px; }
-.msg-sources { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin: 14px 0; display: inline-block; max-width: 90%; }
-.msg-sources .who { color: #22d3ee; font-weight: 800; display: block; margin-bottom: 10px; letter-spacing: 0.05em; }
-.msg-sources a { color: #67e8f9; text-decoration: underline; }
-.msg-sources ol { margin: 0; padding-left: 20px; }
-pre { background: #0f172a; padding: 14px; border-radius: 10px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; overflow-x: auto; border: 1px solid #334155; margin: 8px 0; max-width: 100%; }
-code { background: #1e293b; padding: 2px 6px; border-radius: 5px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; color: #22d3ee; }
-a { color: #38bdf8; text-decoration: none; }
-ul, ol { margin: 6px 0; padding-left: 22px; }
-h1, h2, h3 { color: #22d3ee; margin: 10px 0 6px 0; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-"""
+
+class MessageBubble(QFrame):
+    """A single chat bubble (user or assistant)."""
+
+    def __init__(self, role: str, text: str, stamp: str, parent=None) -> None:
+        super().__init__(parent)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setStyleSheet("background: transparent;")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(8)
+
+        avatar = QLabel("U" if role == "user" else "T")
+        avatar.setAlignment(Qt.AlignCenter)
+        avatar.setFixedSize(34, 34)
+        avatar.setStyleSheet(
+            f"background-color: {'#22d3ee' if role == 'user' else '#818cf8'};"
+            f"color: #0b1021; font-weight: 900; font-size: 13px; border-radius: 17px;"
+        )
+
+        body = QVBoxLayout()
+        body.setSpacing(2)
+
+        who = QLabel("You" if role == "user" else "Taji 1.1")
+        who.setStyleSheet(
+            f"color: {'#93c5fd' if role == 'user' else '#c7d2fe'}; font-size: 11px;"
+            f"font-weight: 800; letter-spacing: 0.05em;"
+        )
+
+        msg = QLabel(render_markdown(text))
+        msg.setWordWrap(True)
+        msg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
+        msg.setStyleSheet(
+            f"color: {('#ffffff' if role == 'user' else '#e2e8f0')}; font-size: 14px;"
+            f"background-color: {('#1e40af' if role == 'user' else '#312e81')};"
+            f"padding: 12px 16px; border-radius: 18px;"
+        )
+        # Round one corner depending on role
+        if role == "user":
+            msg.setStyleSheet(msg.styleSheet() + "border-bottom-right-radius: 4px;")
+        else:
+            msg.setStyleSheet(msg.styleSheet() + "border-bottom-left-radius: 4px;")
+
+        time = QLabel(stamp)
+        time.setStyleSheet("color: #64748b; font-size: 10px;")
+
+        body.addWidget(who)
+        body.addWidget(msg)
+        body.addWidget(time)
+        body.addStretch()
+
+        if role == "user":
+            layout.addStretch()
+            layout.addLayout(body, stretch=1)
+            layout.addWidget(avatar)
+        else:
+            layout.addWidget(avatar)
+            layout.addLayout(body, stretch=1)
+            layout.addStretch()
+
+        # Limit bubble width
+        msg.setMaximumWidth(860)
 
 
-class ChatView(QTextBrowser):
-    """Maintains a list of messages and re-renders them as styled HTML bubbles."""
+class ChatView(QListWidget):
+    """Scrollable list of message bubbles."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setReadOnly(True)
-        self.setOpenExternalLinks(True)
-        self.setFrameShape(QTextBrowser.NoFrame)
-        self.document().setDefaultStyleSheet(_STYLESHEET)
-        self._messages: List[Tuple[str, Any, str | None]] = []
+        self.setObjectName("ChatView")
+        self.setFrameShape(QFrame.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self.setSpacing(4)
 
-    # -- public API --------------------------------------------------------
-
-    @staticmethod
-    def _timestamp() -> str:
-        return datetime.now().strftime("%H:%M")
+    def _add(self, role: str, text: str) -> None:
+        stamp = datetime.now().strftime("%H:%M")
+        bubble = MessageBubble(role, text, stamp)
+        item = QListWidgetItem(self)
+        item.setSizeHint(bubble.sizeHint())
+        self.addItem(item)
+        self.setItemWidget(item, bubble)
+        self.scrollToBottom()
 
     def add_user(self, text: str) -> None:
-        self._messages.append(("user", text, self._timestamp()))
-        self._render()
+        self._add("user", text)
 
     def add_assistant(self, text: str) -> None:
-        self._messages.append(("assistant", text, self._timestamp()))
-        self._render()
+        self._add("assistant", text)
 
     def begin_assistant(self) -> None:
-        """Start a streaming assistant message."""
-        self._messages.append(("assistant", "", self._timestamp()))
-        self._render()
+        """Create an empty assistant bubble ready for streaming."""
+        stamp = datetime.now().strftime("%H:%M")
+        bubble = MessageBubble("assistant", "", stamp)
+        item = QListWidgetItem(self)
+        item.setSizeHint(bubble.sizeHint())
+        self.addItem(item)
+        self.setItemWidget(item, bubble)
+        self._stream_item = item
+        self.scrollToBottom()
 
     def append_assistant(self, chunk: str) -> None:
-        """Append a chunk to the in-progress assistant message."""
-        if self._messages and self._messages[-1][0] == "assistant":
-            kind, text, stamp = self._messages[-1]
-            self._messages[-1] = (kind, text + chunk, stamp)
-            self._render()
+        """Append text to the last assistant bubble."""
+        widget = self.itemWidget(self._stream_item) if hasattr(self, "_stream_item") else None
+        if widget is None:
+            self.add_assistant(chunk)
+            return
+        # Find the QLabel inside the bubble (second widget in body layout)
+        # Recreate label with accumulated text is simplest
+        layout = widget.layout()
+        if layout is None:
+            return
+        body = layout.itemAt(1).widget() if layout.count() > 1 else None
+        if body is None:
+            return
+        # body layout: who(0), msg(1), time(2)
+        msg_label = body.layout().itemAt(1).widget() if body.layout() else None
+        if msg_label is None:
+            return
+        current = msg_label.text()
+        # render_markdown is not incremental; we store raw and re-render
+        self._raw_assistant_text = getattr(self, "_raw_assistant_text", "") + chunk
+        msg_label.setText(render_markdown(self._raw_assistant_text))
+        widget.adjustSize()
+        item = self._stream_item
+        item.setSizeHint(widget.sizeHint())
+        self.scrollToBottom()
+
+    def finish_assistant(self) -> None:
+        if hasattr(self, "_stream_item"):
+            del self._stream_item
+        self._raw_assistant_text = ""
 
     def add_system(self, text: str) -> None:
-        """Append a muted status/error line."""
-        self._messages.append(("system", text, None))
-        self._render()
+        stamp = datetime.now().strftime("%H:%M")
+        label = QLabel(text)
+        label.setStyleSheet("color: #64748b; font-size: 12px; font-style: italic; padding: 8px;")
+        label.setAlignment(Qt.AlignCenter)
+        item = QListWidgetItem(self)
+        item.setSizeHint(label.sizeHint())
+        self.addItem(item)
+        self.setItemWidget(item, label)
+        self.scrollToBottom()
 
-    def add_sources(self, sources: List[Any]) -> None:
-        """Append a numbered, clickable source list."""
-        self._messages.append(("sources", sources, None))
-        self._render()
+    def add_sources(self, sources: List[object]) -> None:
+        from .research import SourcesPanel
+        panel = SourcesPanel()
+        panel.set_sources(sources)
+        item = QListWidgetItem(self)
+        item.setSizeHint(panel.sizeHint())
+        self.addItem(item)
+        self.setItemWidget(item, panel)
+        self.scrollToBottom()
 
     def clear_chat(self) -> None:
-        self._messages.clear()
-        self._render()
-
-    # -- rendering ---------------------------------------------------------
-
-    def _render(self) -> None:
-        blocks = "".join(self._block(k, p, s) for k, p, s in self._messages)
-        self.setHtml(f'<div class="chat-container">{blocks}</div>')
-        bar = self.verticalScrollBar()
-        bar.setValue(bar.maximum())
-
-    def _block(self, kind: str, payload: Any, stamp: str | None) -> str:
-        time_html = f'<span class="time">{stamp}</span>' if stamp else ""
-        if kind == "user":
-            return (
-                '<div class="msg msg-user">'
-                '<span class="bubble">'
-                f"{render_markdown(payload)}{time_html}"
-                '</span>'
-                '<span class="avatar">U</span>'
-                '</div>'
-            )
-        if kind == "assistant":
-            return (
-                '<div class="msg msg-assistant">'
-                '<span class="avatar">T</span>'
-                '<span class="bubble">'
-                f"{render_markdown(payload)}{time_html}"
-                '</span>'
-                '</div>'
-            )
-        if kind == "system":
-            return f'<div class="msg msg-system">{html.escape(payload)}</div>'
-        if kind == "sources":
-            return self._render_sources(payload)
-        return ""
-
-    @staticmethod
-    def _render_sources(sources: List[Any]) -> str:
-        if not sources:
-            return (
-                '<div class="msg msg-sources"><span class="who">Sources</span>'
-                "<br><i>No sources found.</i></div>"
-            )
-        items = "".join(
-            f'<li>[{s.index}] '
-            f'<a href="{html.escape(s.url, quote=True)}">'
-            f"{html.escape(s.title)}</a></li>"
-            for s in sources
-        )
-        return (
-            '<div class="msg msg-sources"><span class="who">Sources</span>'
-            f"<br><ol>{items}</ol></div>"
-        )
+        self.clear()
+        if hasattr(self, "_stream_item"):
+            del self._stream_item
+        self._raw_assistant_text = ""
