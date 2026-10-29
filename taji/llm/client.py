@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterator, List, Optional
 import ollama
 
 from .. import config
+from .prompts import SYSTEM_PROMPT
 
 
 class OllamaError(RuntimeError):
@@ -23,7 +24,7 @@ class OllamaClient:
     def __init__(
         self,
         host: Optional[str] = None,
-        model: Optional[str] = None,
+        model: Optional[str] = "qwen2.5:3b",
     ) -> None:
         self.host = host or config.OLLAMA_HOST
         self.model = model or config.MODEL_NAME
@@ -39,8 +40,11 @@ class OllamaClient:
         self, messages: List[Dict[str, str]], system: Optional[str]
     ) -> List[Dict[str, str]]:
         """Prepend the system prompt if one is supplied and not already present."""
-        if system and (not messages or messages[0].get("role") != "system"):
-            return [{"role": "system", "content": system}] + list(messages)
+        # Default to Taji's core system prompt if none is explicitly provided
+        prompt = system if system is not None else SYSTEM_PROMPT
+        
+        if prompt and (not messages or messages[0].get("role") != "system"):
+            return [{"role": "system", "content": prompt}] + list(messages)
         return list(messages)
 
     def chat(

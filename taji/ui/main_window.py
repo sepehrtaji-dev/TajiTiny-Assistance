@@ -10,11 +10,12 @@ from PySide6.QtWidgets import (
     QStackedWidget, QLabel, QPushButton, QListWidget, QListWidgetItem,
     QFrame, QSplitter, QTextEdit, QLineEdit, QComboBox, QSpinBox,
     QDoubleSpinBox, QGroupBox, QFormLayout, QMessageBox, QProgressBar,
-    QSizePolicy,
+    QSizePolicy, QTextBrowser
 )
 
 from .. import config
 from ..llm.client import OllamaClient, OllamaError
+from ..llm.prompts import SYSTEM_PROMPT
 from ..research.engine import ResearchEngine
 from .chat import ChatView
 from .markdown import render_markdown
@@ -101,7 +102,8 @@ class MainWindow(QMainWindow):
         sidebar.setObjectName("Sidebar")
         sidebar.setFixedWidth(240)
         s_layout = QVBoxLayout(sidebar)
-        s_layout.setContentsMargins(0, 24, 0, 24)
+        # FIX: Added margins to prevent text from touching the edges
+        s_layout.setContentsMargins(20, 24, 20, 24)
         s_layout.setSpacing(8)
 
         logo = QLabel("TAJI")
@@ -109,8 +111,9 @@ class MainWindow(QMainWindow):
         s_layout.addWidget(logo)
 
         ver = QLabel(f"v{config.APP_VERSION}")
-        ver.setStyleSheet("font-size: 11px; color: #64748b; margin-bottom: 20px;")
+        ver.setStyleSheet("font-size: 11px; color: #64748b;")
         s_layout.addWidget(ver)
+        s_layout.addSpacing(20) # FIX: Replaced margin-bottom with spacing
 
         self.nav = QListWidget()
         self.nav.setObjectName("Nav")
@@ -162,15 +165,16 @@ class MainWindow(QMainWindow):
         self.model_combo.setEnabled(False)
         top_layout.addWidget(self.model_combo)
 
+        # FIX: Added ObjectName to style these buttons correctly in theme.py
         self.btn_theme = QPushButton("🌙")
+        self.btn_theme.setObjectName("IconButton")
         self.btn_theme.setFixedSize(34, 34)
-        self.btn_theme.setStyleSheet("border-radius: 17px; font-size: 16px;")
         self.btn_theme.clicked.connect(self._toggle_theme)
         top_layout.addWidget(self.btn_theme)
 
         self.btn_settings = QPushButton("⚙️")
+        self.btn_settings.setObjectName("IconButton")
         self.btn_settings.setFixedSize(34, 34)
-        self.btn_settings.setStyleSheet("border-radius: 17px; font-size: 16px;")
         self.btn_settings.clicked.connect(lambda: self._navigate_to("settings"))
         top_layout.addWidget(self.btn_settings)
 
@@ -202,6 +206,8 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.sources_panel)
         splitter.setStretchFactor(0, 5)
         splitter.setStretchFactor(1, 1)
+        # FIX: Set initial sizes so the sources panel doesn't take up half the screen
+        splitter.setSizes([750, 250])
 
         layout.addWidget(splitter)
 
@@ -214,12 +220,14 @@ class MainWindow(QMainWindow):
 
         self.user_input = QTextEdit()
         self.user_input.setPlaceholderText("Ask Taji anything… (Shift + Enter for newline)")
-        self.user_input.setMaximumHeight(96)
-        self.user_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        # FIX: Set a fixed height so it doesn't expand into a giant grey box
+        self.user_input.setFixedHeight(80)
+        self.user_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.user_input.installEventFilter(self)
 
         btn_col = QVBoxLayout()
-        btn_col.setSpacing(6)
+        btn_col.setSpacing(8)
+        btn_col.addStretch() # FIX: Push buttons to the bottom of the card
 
         self.btn_send = QPushButton("Send")
         self.btn_send.setObjectName("Primary")
@@ -236,7 +244,6 @@ class MainWindow(QMainWindow):
         btn_col.addWidget(self.btn_send)
         btn_col.addWidget(self.btn_stop)
         btn_col.addWidget(self.btn_to_research)
-        btn_col.addStretch()
 
         card_layout.addWidget(self.user_input)
         card_layout.addLayout(btn_col)

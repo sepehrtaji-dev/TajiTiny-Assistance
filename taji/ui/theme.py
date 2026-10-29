@@ -43,8 +43,8 @@ def stylesheet(name: str = "dark") -> str:
         border-radius: 12px; padding: 12px; }}
     QListWidget#Nav {{ background: transparent; border: none; outline: none; }}
     QListWidget#Nav::item {{ background: transparent; padding: 14px 18px;
-        border-radius: 10px; margin: 4px 10px; font-size: 14px; min-height: 44px; }}
-    QListWidget#Nav::item:selected {{ background-color: {p['ACCENT']}; color: {p['BG']}; }}
+        border-radius: 10px; margin: 4px 0px; font-size: 14px; min-height: 44px; }}
+    QListWidget#Nav::item:selected {{ background-color: {p['ACCENT']}; color: {p['BG']}; font-weight: bold; }}
     QListWidget#Nav::item:hover:!selected {{ background-color: {p['SURFACE_ALT']}; }}
     QPushButton {{ background-color: {p['SURFACE_ALT']}; border: 1px solid {p['BORDER']};
         border-radius: 8px; padding: 8px 16px; min-width: 100px; }}
@@ -54,6 +54,23 @@ def stylesheet(name: str = "dark") -> str:
     QPushButton#Primary:hover {{ background-color: {p['ACCENT_HOVER']}; }}
     QPushButton#Danger {{ background-color: {p['DANGER']}; color: #fff; border: none; }}
     QPushButton#Danger:hover {{ background-color: #b91c1c; }}
+    
+    /* FIX: Specific styling for the round top-bar icon buttons */
+    QPushButton#IconButton {{
+        background-color: transparent;
+        border: 1px solid {p['BORDER']};
+        border-radius: 17px;
+        padding: 0px;
+        min-width: 34px;
+        max-width: 34px;
+        min-height: 34px;
+        max-height: 34px;
+        font-size: 16px;
+    }}
+    QPushButton#IconButton:hover {{
+        background-color: {p['SURFACE_ALT']};
+    }}
+
     QLineEdit, QTextEdit {{ background-color: {p['SURFACE_ALT']}; border: 1px solid {p['BORDER']};
         border-radius: 8px; padding: 10px; color: {p['TEXT']}; }}
     QLineEdit:focus, QTextEdit:focus {{ border: 1px solid {p['ACCENT']}; }}
