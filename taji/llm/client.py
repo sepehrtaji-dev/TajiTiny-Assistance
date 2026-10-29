@@ -39,12 +39,18 @@ class OllamaClient:
     def _messages_with_system(
         self, messages: List[Dict[str, str]], system: Optional[str]
     ) -> List[Dict[str, str]]:
-        """Prepend the system prompt if one is supplied and not already present."""
-        # Default to Taji's core system prompt if none is explicitly provided
+        """Forcefully inject the system prompt to ensure the model obeys its identity."""
+        # Use the passed system prompt, or fall back to Taji's core identity
         prompt = system if system is not None else SYSTEM_PROMPT
         
-        if prompt and (not messages or messages[0].get("role") != "system"):
-            return [{"role": "system", "content": prompt}] + list(messages)
+        # Always ensure the system prompt is the very first message
+        if prompt:
+            if not messages or messages[0].get("role") != "system":
+                return [{"role": "system", "content": prompt}] + list(messages)
+            else:
+                # Override any existing system prompt to ensure strict adherence
+                messages[0]["content"] = prompt
+                
         return list(messages)
 
     def chat(

@@ -39,15 +39,45 @@ def stylesheet(name: str = "dark") -> str:
         font-family: 'Segoe UI', 'Inter', sans-serif; font-size: 13px; }}
     QFrame#Sidebar {{ background-color: {p['SURFACE']}; border-right: 1px solid {p['BORDER']}; }}
     QFrame#TopBar {{ background-color: {p['SURFACE']}; border-bottom: 1px solid {p['BORDER']}; }}
-    QFrame#InputCard {{ background-color: {p['SURFACE']}; border: 1px solid {p['BORDER']};
-        border-radius: 12px; padding: 12px; }}
+    
+    /* The sleek input card */
+    QFrame#InputCard {{ 
+        background-color: {p['SURFACE_ALT']}; 
+        border: 1px solid {p['BORDER']};
+        border-radius: 12px; 
+    }}
+    QTextEdit#ChatInput {{
+        background: transparent;
+        border: none;
+        padding: 0px;
+        font-size: 14px;
+    }}
+    QTextEdit#ChatInput:focus {{
+        border: none;
+    }}
+    
+    /* Ghost button for Deep Research inside input bar */
+    QPushButton#GhostButton {{
+        background: transparent;
+        border: 1px solid {p['BORDER']};
+        color: {p['TEXT_MUTED']};
+        padding: 6px 12px;
+        border-radius: 6px;
+        min-width: 0px;
+    }}
+    QPushButton#GhostButton:hover {{
+        background: {p['BORDER']};
+        color: {p['TEXT']};
+    }}
+
     QListWidget#Nav {{ background: transparent; border: none; outline: none; }}
-    QListWidget#Nav::item {{ background: transparent; padding: 14px 18px;
-        border-radius: 10px; margin: 4px 0px; font-size: 14px; min-height: 44px; }}
+    QListWidget#Nav::item {{ background: transparent; padding: 12px 16px;
+        border-radius: 10px; margin: 4px 0px; font-size: 14px; }}
     QListWidget#Nav::item:selected {{ background-color: {p['ACCENT']}; color: {p['BG']}; font-weight: bold; }}
     QListWidget#Nav::item:hover:!selected {{ background-color: {p['SURFACE_ALT']}; }}
+    
     QPushButton {{ background-color: {p['SURFACE_ALT']}; border: 1px solid {p['BORDER']};
-        border-radius: 8px; padding: 8px 16px; min-width: 100px; }}
+        border-radius: 8px; padding: 8px 16px; min-width: 80px; }}
     QPushButton:hover {{ background-color: {p['BORDER']}; }}
     QPushButton#Primary {{ background-color: {p['ACCENT']}; color: {p['BG']};
         border: none; font-weight: 700; }}
@@ -55,7 +85,7 @@ def stylesheet(name: str = "dark") -> str:
     QPushButton#Danger {{ background-color: {p['DANGER']}; color: #fff; border: none; }}
     QPushButton#Danger:hover {{ background-color: #b91c1c; }}
     
-    /* FIX: Specific styling for the round top-bar icon buttons */
+    /* Top Bar Icon Buttons */
     QPushButton#IconButton {{
         background-color: transparent;
         border: 1px solid {p['BORDER']};
@@ -89,8 +119,3 @@ def stylesheet(name: str = "dark") -> str:
     QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px;
         color: {p['TEXT_MUTED']}; }}
     """
-
-
-def apply_theme(app: QApplication, name: str = "dark") -> None:
-    app.setStyle("Fusion")
-    app.setStyleSheet(stylesheet(name))

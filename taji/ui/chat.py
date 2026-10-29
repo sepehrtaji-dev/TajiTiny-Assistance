@@ -50,7 +50,6 @@ class MessageBubble(QFrame):
             f"background-color: {('#1e40af' if role == 'user' else '#312e81')};"
             f"padding: 12px 16px; border-radius: 18px;"
         )
-        # Round one corner depending on role
         if role == "user":
             msg.setStyleSheet(msg.styleSheet() + "border-bottom-right-radius: 4px;")
         else:
@@ -73,7 +72,6 @@ class MessageBubble(QFrame):
             layout.addLayout(body, stretch=1)
             layout.addStretch()
 
-        # Limit bubble width
         msg.setMaximumWidth(860)
 
 
@@ -120,20 +118,15 @@ class ChatView(QListWidget):
         if widget is None:
             self.add_assistant(chunk)
             return
-        # Find the QLabel inside the bubble (second widget in body layout)
-        # Recreate label with accumulated text is simplest
         layout = widget.layout()
         if layout is None:
             return
         body = layout.itemAt(1).widget() if layout.count() > 1 else None
         if body is None:
             return
-        # body layout: who(0), msg(1), time(2)
         msg_label = body.layout().itemAt(1).widget() if body.layout() else None
         if msg_label is None:
             return
-        current = msg_label.text()
-        # render_markdown is not incremental; we store raw and re-render
         self._raw_assistant_text = getattr(self, "_raw_assistant_text", "") + chunk
         msg_label.setText(render_markdown(self._raw_assistant_text))
         widget.adjustSize()

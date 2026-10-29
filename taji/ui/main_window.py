@@ -102,7 +102,6 @@ class MainWindow(QMainWindow):
         sidebar.setObjectName("Sidebar")
         sidebar.setFixedWidth(240)
         s_layout = QVBoxLayout(sidebar)
-        # FIX: Added margins to prevent text from touching the edges
         s_layout.setContentsMargins(20, 24, 20, 24)
         s_layout.setSpacing(8)
 
@@ -113,11 +112,15 @@ class MainWindow(QMainWindow):
         ver = QLabel(f"v{config.APP_VERSION}")
         ver.setStyleSheet("font-size: 11px; color: #64748b;")
         s_layout.addWidget(ver)
-        s_layout.addSpacing(20) # FIX: Replaced margin-bottom with spacing
+        s_layout.addSpacing(20)
 
         self.nav = QListWidget()
         self.nav.setObjectName("Nav")
         self.nav.setFocusPolicy(Qt.NoFocus)
+        # FIX: Hide scrollbars to make the sidebar clean
+        self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        
         self.nav_items = [
             ("💬 Chat", "chat"),
             ("🔍 Research", "research"),
@@ -153,6 +156,7 @@ class MainWindow(QMainWindow):
         top.setFixedHeight(56)
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(20, 0, 20, 0)
+        top_layout.setAlignment(Qt.AlignVCenter) # FIX: Center align items vertically
 
         self.page_title = QLabel("Chat")
         self.page_title.setStyleSheet("font-size: 17px; font-weight: 800;")
@@ -164,8 +168,9 @@ class MainWindow(QMainWindow):
         self.model_combo.setFixedWidth(170)
         self.model_combo.setEnabled(False)
         top_layout.addWidget(self.model_combo)
+        
+        top_layout.addSpacing(10) # Gap between combo and icons
 
-        # FIX: Added ObjectName to style these buttons correctly in theme.py
         self.btn_theme = QPushButton("🌙")
         self.btn_theme.setObjectName("IconButton")
         self.btn_theme.setFixedSize(34, 34)
@@ -195,60 +200,72 @@ class MainWindow(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 20, 28, 20)
-        layout.setSpacing(12)
+        layout.setSpacing(20)
 
-        splitter = QSplitter(Qt.Horizontal)
+        # Chat View Splitter
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
 
         self.chat_view = ChatView()
-        splitter.addWidget(self.chat_view)
+        self.splitter.addWidget(self.chat_view)
 
         self.sources_panel = SourcesPanel()
-        splitter.addWidget(self.sources_panel)
-        splitter.setStretchFactor(0, 5)
-        splitter.setStretchFactor(1, 1)
-        # FIX: Set initial sizes so the sources panel doesn't take up half the screen
-        splitter.setSizes([750, 250])
+        self.sources_panel.hide() # FIX: Hide until we actually have sources
+        self.splitter.addWidget(self.sources_panel)
+        
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 0)
 
-        layout.addWidget(splitter)
+        layout.addWidget(self.splitter, 1)
 
-        # Input card
+        # Sleek Input Bar (Replacing the massive card)
         card = QFrame()
         card.setObjectName("InputCard")
-        card_layout = QHBoxLayout(card)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        
+        card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(16, 12, 16, 12)
-        card_layout.setSpacing(10)
+        card_layout.setSpacing(8)
 
         self.user_input = QTextEdit()
+        self.user_input.setObjectName("ChatInput")
         self.user_input.setPlaceholderText("Ask Taji anything… (Shift + Enter for newline)")
-        # FIX: Set a fixed height so it doesn't expand into a giant grey box
-        self.user_input.setFixedHeight(80)
+        self.user_input.setFixedHeight(50)
         self.user_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.user_input.installEventFilter(self)
+        card_layout.addWidget(self.user_input)
 
-        btn_col = QVBoxLayout()
-        btn_col.setSpacing(8)
-        btn_col.addStretch() # FIX: Push buttons to the bottom of the card
+        # Divider line
+        divider = QFrame()
+        divider.setFrameShape(QFrame.HLine)
+        divider.setStyleSheet("background-color: #374151; max-height: 1px; margin: 4px 0px;")
+        card_layout.addWidget(divider)
 
-        self.btn_send = QPushButton("Send")
-        self.btn_send.setObjectName("Primary")
-        self.btn_send.clicked.connect(self._send)
+        # Buttons Row
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        self.btn_to_research = QPushButton("🔍 Deep Research")
+        self.btn_to_research.setObjectName("GhostButton")
+        self.btn_to_research.clicked.connect(lambda: self._navigate_to("research"))
+        btn_row.addWidget(self.btn_to_research)
+
+        btn_row.addStretch()
 
         self.btn_stop = QPushButton("Stop")
         self.btn_stop.setObjectName("Danger")
         self.btn_stop.hide()
         self.btn_stop.clicked.connect(self._stop)
+        btn_row.addWidget(self.btn_stop)
 
-        self.btn_to_research = QPushButton("Deep Research")
-        self.btn_to_research.clicked.connect(lambda: self._navigate_to("research"))
+        self.btn_send = QPushButton("Send")
+        self.btn_send.setObjectName("Primary")
+        self.btn_send.clicked.connect(self._send)
+        btn_row.addWidget(self.btn_send)
 
-        btn_col.addWidget(self.btn_send)
-        btn_col.addWidget(self.btn_stop)
-        btn_col.addWidget(self.btn_to_research)
-
-        card_layout.addWidget(self.user_input)
-        card_layout.addLayout(btn_col)
-
+        card_layout.addLayout(btn_row)
         layout.addWidget(card)
+
         return page
 
     def _build_research_page(self) -> QWidget:
@@ -527,7 +544,10 @@ class MainWindow(QMainWindow):
         self._navigate_to("chat")
         self.chat_view.add_user(result.question)
         self.chat_view.add_assistant(result.answer)
+        
+        # Show the sources panel now that we have data
         self.sources_panel.set_sources(result.sources)
+        self.sources_panel.show()
         self.chat_view.add_sources(result.sources)
 
     def _save_settings(self) -> None:
