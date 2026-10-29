@@ -36,14 +36,15 @@ PALETTES = {
 
 def _template() -> str:
     return """
-    QMainWindow { background-color: __BG__; }
+    QMainWindow, QWidget { background-color: __BG__; }
     QWidget { color: __TEXT__; font-family: 'Segoe UI', 'Inter', 'Helvetica Neue', sans-serif; font-size: 13px; }
     QFrame#Sidebar { background-color: __SURFACE__; border-right: 1px solid __BORDER__; }
+    QFrame#TopBar { background-color: __SURFACE__; border-bottom: 1px solid __BORDER__; }
     QFrame#InputCard { background-color: __SURFACE__; border: 1px solid __BORDER__; border-radius: 14px; padding: 10px; }
     QListWidget#Nav { background: transparent; border: none; outline: none; }
-    QListWidget#Nav::item { background: transparent; padding: 12px 16px; border-radius: 10px; margin: 4px 8px; font-size: 14px; }
+    QListWidget#Nav::item { background: transparent; padding: 12px 16px; border-radius: 10px; margin: 4px 8px; font-size: 14px; min-height: 40px; }
     QListWidget#Nav::item:selected { background-color: __ACCENT__; color: __BG__; }
-    QListWidget#Nav::item:hover { background-color: __SURFACE_ALT__; }
+    QListWidget#Nav::item:hover:!selected { background-color: __SURFACE_ALT__; }
     QPushButton { background-color: __SURFACE_ALT__; border: 1px solid __BORDER__; border-radius: 8px; padding: 8px 16px; min-width: 90px; }
     QPushButton:hover { background-color: __BORDER__; }
     QPushButton#Primary { background-color: __ACCENT__; color: __BG__; border: none; font-weight: 700; }
@@ -55,7 +56,7 @@ def _template() -> str:
     QComboBox { background-color: __SURFACE_ALT__; border: 1px solid __BORDER__; border-radius: 8px; padding: 6px 10px; min-width: 140px; }
     QComboBox::drop-down { border: none; width: 24px; }
     QSpinBox, QDoubleSpinBox { background-color: __SURFACE_ALT__; border: 1px solid __BORDER__; border-radius: 8px; padding: 6px; }
-    QProgressBar { border: 1px solid __BORDER__; border-radius: 6px; text-align: center; background: __SURFACE_ALT__; }
+    QProgressBar { border: 1px solid __BORDER__; border-radius: 6px; text-align: center; background: __SURFACE_ALT__; height: 8px; }
     QProgressBar::chunk { background-color: __ACCENT__; border-radius: 6px; }
     QSplitter::handle { background-color: __BORDER__; width: 1px; }
     QScrollBar:vertical { background: transparent; width: 10px; margin: 0; }
@@ -65,6 +66,7 @@ def _template() -> str:
     QLabel { color: __TEXT__; }
     QGroupBox { border: 1px solid __BORDER__; border-radius: 10px; margin-top: 12px; padding-top: 14px; }
     QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; color: __TEXT_MUTED__; }
+    QProgressBar { border: none; }
     """
 
 
