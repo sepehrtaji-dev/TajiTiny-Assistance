@@ -11,26 +11,27 @@ from PySide6.QtWidgets import QTextBrowser
 from .markdown import render_markdown
 
 _STYLESHEET = """
-body { font-family: 'Segoe UI', 'Inter', 'Helvetica Neue', sans-serif; font-size: 14px; color: #e2e8f0; }
-.msg { display: flex; margin: 12px 0; animation: fadeIn 0.25s ease-out; }
-.msg-user { flex-direction: row-reverse; }
-.msg-assistant { flex-direction: row; }
-.avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; margin: 0 10px; flex-shrink: 0; }
+body { font-family: 'Segoe UI', 'Inter', 'Helvetica Neue', sans-serif; font-size: 14px; color: #e2e8f0; background: transparent; margin: 0; padding: 8px; }
+.chat-container { padding: 4px 0; }
+.msg { margin: 10px 0; animation: fadeIn 0.25s ease-out; }
+.msg-user { text-align: right; }
+.msg-assistant { text-align: left; }
+.avatar { display: inline-block; width: 34px; height: 34px; border-radius: 50%; text-align: center; line-height: 34px; font-weight: 800; font-size: 13px; margin: 0 8px; vertical-align: middle; }
 .msg-user .avatar { background: #22d3ee; color: #0b1021; }
 .msg-assistant .avatar { background: #818cf8; color: #0b1021; }
-.bubble { padding: 12px 16px; border-radius: 18px; max-width: 72%; line-height: 1.6; white-space: pre-wrap; }
+.bubble { display: inline-block; max-width: 78%; padding: 12px 18px; border-radius: 18px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; vertical-align: middle; text-align: left; }
 .msg-user .bubble { border-bottom-right-radius: 4px; background: #1e40af; color: #ffffff; }
 .msg-assistant .bubble { border-bottom-left-radius: 4px; background: #312e81; color: #e2e8f0; }
 .who { font-size: 11px; font-weight: 800; opacity: 0.8; margin-bottom: 6px; display: block; letter-spacing: 0.05em; }
 .msg-user .who { color: #93c5fd; }
 .msg-assistant .who { color: #c7d2fe; }
 .time { font-size: 10px; opacity: 0.5; margin-top: 8px; display: block; }
-.msg-system { justify-content: center; color: #64748b; font-size: 12px; font-style: italic; padding: 10px; text-align: center; }
-.msg-sources { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin: 14px 0; }
+.msg-system { text-align: center; color: #64748b; font-size: 12px; font-style: italic; padding: 10px; }
+.msg-sources { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin: 14px 0; display: inline-block; max-width: 90%; }
 .msg-sources .who { color: #22d3ee; font-weight: 800; display: block; margin-bottom: 10px; letter-spacing: 0.05em; }
 .msg-sources a { color: #67e8f9; text-decoration: underline; }
 .msg-sources ol { margin: 0; padding-left: 20px; }
-pre { background: #0f172a; padding: 14px; border-radius: 10px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; overflow-x: auto; border: 1px solid #334155; margin: 8px 0; }
+pre { background: #0f172a; padding: 14px; border-radius: 10px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; overflow-x: auto; border: 1px solid #334155; margin: 8px 0; max-width: 100%; }
 code { background: #1e293b; padding: 2px 6px; border-radius: 5px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; color: #22d3ee; }
 a { color: #38bdf8; text-decoration: none; }
 ul, ol { margin: 6px 0; padding-left: 22px; }
@@ -94,7 +95,7 @@ class ChatView(QTextBrowser):
 
     def _render(self) -> None:
         blocks = "".join(self._block(k, p, s) for k, p, s in self._messages)
-        self.setHtml(blocks)
+        self.setHtml(f'<div class="chat-container">{blocks}</div>')
         bar = self.verticalScrollBar()
         bar.setValue(bar.maximum())
 
@@ -103,18 +104,20 @@ class ChatView(QTextBrowser):
         if kind == "user":
             return (
                 '<div class="msg msg-user">'
-                '<div class="avatar">U</div>'
-                '<div class="bubble">'
+                '<span class="bubble">'
                 f"{render_markdown(payload)}{time_html}"
-                '</div></div>'
+                '</span>'
+                '<span class="avatar">U</span>'
+                '</div>'
             )
         if kind == "assistant":
             return (
                 '<div class="msg msg-assistant">'
-                '<div class="avatar">T</div>'
-                '<div class="bubble">'
+                '<span class="avatar">T</span>'
+                '<span class="bubble">'
                 f"{render_markdown(payload)}{time_html}"
-                '</div></div>'
+                '</span>'
+                '</div>'
             )
         if kind == "system":
             return f'<div class="msg msg-system">{html.escape(payload)}</div>'
